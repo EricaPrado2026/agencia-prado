@@ -1,0 +1,414 @@
+<title>Saúde do Pixel Meta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f5; --surface:#fcfcfb; --surface-2:#eef1f0; --line:#dde2e0; --grid:#e7ebe9;
+  --ink:#121816; --ink-2:#4b5552; --ink-3:#7a8480;
+  --accent:#0e6b66; --accent-soft:#d7ebe8;
+  --pv:#2a78d6; --vc:#1baf7a; --lead:#eb6834; --ic:#4a3aa7;
+  --crit:#c7362f; --crit-bg:#fbe7e5; --serious:#c75b12; --serious-bg:#fcecdf; --warn:#9a6a00; --warn-bg:#fbf1d6; --ok:#2e7d32; --ok-bg:#e3f1e3;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif; --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#101413; --surface:#171c1b; --surface-2:#1f2524; --line:#2c3432; --grid:#252c2a;
+  --ink:#eef2f0; --ink-2:#b4bdb9; --ink-3:#86908c; --accent:#5cc2b8; --accent-soft:#17312e;
+  --pv:#3987e5; --vc:#199e70; --lead:#d95926; --ic:#9085e9;
+  --crit:#f07a72; --crit-bg:#3a1b19; --serious:#f09a55; --serious-bg:#3a2515; --warn:#e3b64a; --warn-bg:#342b12; --ok:#7cc97f; --ok-bg:#18301a;}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#101413; --surface:#171c1b; --surface-2:#1f2524; --line:#2c3432; --grid:#252c2a;
+  --ink:#eef2f0; --ink-2:#b4bdb9; --ink-3:#86908c; --accent:#5cc2b8; --accent-soft:#17312e;
+  --pv:#3987e5; --vc:#199e70; --lead:#d95926; --ic:#9085e9;
+  --crit:#f07a72; --crit-bg:#3a1b19; --serious:#f09a55; --serious-bg:#3a2515; --warn:#e3b64a; --warn-bg:#342b12; --ok:#7cc97f; --ok-bg:#18301a;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 60px;display:grid;gap:22px}
+h1,h2{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:30px;font-weight:700}
+h2{font-size:18px;font-weight:700}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.muted{color:var(--ink-2)} .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;justify-content:space-between}
+header .meta{display:flex;flex-direction:column;gap:6px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:500 12px var(--sans);border:0;background:none;color:var(--ink-2);padding:7px 12px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.btn{font:500 12px var(--sans);border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:7px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+button:focus-visible,label.btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+#file{position:absolute;opacity:0;width:1px;height:1px}
+.status{font-size:12px;color:var(--ink-3)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:4px;position:relative}
+.kpi .v{font:500 26px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--ink-2)}
+.kpi .dot{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:1px}
+.kpi.alert{border-color:var(--crit)} .kpi.alert .v{color:var(--crit)}
+.issues{display:grid;gap:10px}
+.issue{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:14px 16px;border-radius:10px;background:var(--surface-2);border-left:4px solid var(--sev)}
+.issue .pill{grid-row:span 3;align-self:start;font:600 10px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-radius:5px;background:var(--sev-bg);color:var(--sev);white-space:nowrap}
+.issue h3{margin:0;font:600 15px/1.35 var(--sans)}
+.issue p{margin:0;color:var(--ink-2);max-width:78ch}
+.issue .fix{color:var(--ink)} .issue .fix b{font-weight:600}
+.sev-critical{--sev:var(--crit);--sev-bg:var(--crit-bg)} .sev-serious{--sev:var(--serious);--sev-bg:var(--serious-bg)}
+.sev-warning{--sev:var(--warn);--sev-bg:var(--warn-bg)} .sev-ok{--sev:var(--ok);--sev-bg:var(--ok-bg)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:22px}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font:11px var(--mono);fill:var(--ink-3)}
+.chart .lbl{fill:var(--ink-2);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);font:12px/1.4 var(--mono);padding:7px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));z-index:5}
+.tip[hidden]{display:none!important}
+.funnel{display:grid;gap:10px}
+.frow{display:grid;grid-template-columns:130px 1fr 92px;gap:12px;align-items:center}
+.frow .name{font-weight:500}
+.frow .bar{height:22px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.frow .bar span{display:block;height:100%;border-radius:0 4px 4px 0}
+.frow .val{text-align:right;font:500 13px var(--mono)}
+.fstep{grid-column:2/4;font:12px var(--mono);color:var(--ink-3);margin-top:-6px}
+.fstep.bad{color:var(--crit);font-weight:500}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font:500 11px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.zero{color:var(--crit);font-weight:500}
+details summary{cursor:pointer;font-weight:600}
+.foot{font-size:12px;color:var(--ink-3)}
+@media (max-width:560px){h1{font-size:24px}.frow{grid-template-columns:96px 1fr 70px}}
+@media (prefers-reduced-motion:no-preference){.frow .bar span{transition:width .4s ease}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="meta">
+      <span class="eyebrow">Agência Prado · Events Manager · Pixel Meta</span>
+      <h1>Saúde do Pixel</h1>
+      <span class="muted" id="period"></span>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Período">
+        <button id="r-all" data-r="all" aria-pressed="true">Tudo</button>
+        <button id="r-lead" data-r="lead" aria-pressed="false">Desde 1º Lead</button>
+        <button id="r-7" data-r="7" aria-pressed="false">Últimos 7 dias</button>
+      </div>
+      <label class="btn" for="file">Carregar exportações (.xlsx/.csv)<input id="file" type="file" accept=".xlsx,.xls,.csv" multiple></label>
+      <span class="status" id="status"></span>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis" aria-label="Indicadores"></section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Gargalos encontrados</h2><span class="eyebrow" id="issue-count"></span></div>
+    <div class="issues" id="issues"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head"><h2>Funil de eventos</h2><span class="eyebrow">volume no período</span></div>
+      <div class="funnel" id="funnel"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Origem dos eventos</h2><span class="eyebrow">navegador × servidor (CAPI)</span></div>
+      <div class="tbl-wrap"><table id="src"></table></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2>PageView por dia</h2><span class="eyebrow">tráfego que chega na página</span></div>
+    <div class="chart" id="c-pv"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="panel-head"><h2>Leads por dia</h2></div>
+      <div class="chart" id="c-lead"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Taxa PageView → Lead</h2><span class="eyebrow">% por dia</span></div>
+      <div class="chart" id="c-rate"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Perfil por hora do dia</h2><span class="eyebrow">soma do período</span></div>
+    <div class="legend"><span><i style="background:var(--pv)"></i>PageView</span><span><i style="background:var(--lead)"></i>Lead</span></div>
+    <div class="grid2">
+      <div class="chart" id="c-hpv"></div>
+      <div class="chart" id="c-hlead"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Tabela diária completa</summary>
+      <div class="tbl-wrap" style="margin-top:12px"><table id="daily"></table></div>
+    </details>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const SEED = [["2026-08-31T13","PageView",5,0,0,5],["2026-08-31T14","PageView",1,0,0,1],["2026-08-31T15","PageView",2,0,0,2],["2026-08-31T16","PageView",1,0,0,1],["2026-08-31T17","PageView",5,0,0,5],["2026-08-31T17","ViewContent",3,0,0,3],["2026-08-31T19","PageView",1,0,0,1],["2026-08-31T20","PageView",2,0,0,2],["2026-08-31T21","PageView",2,0,0,2],["2026-08-31T21","ViewContent",1,0,0,1],["2026-08-31T22","PageView",2,0,0,2],["2026-08-31T23","InitiateCheckout",1,0,0,1],["2026-08-31T23","PageView",1,0,0,1],["2026-09-01T00","PageView",1,0,0,1],["2026-09-01T01","PageView",2,0,0,2],["2026-09-01T02","PageView",2,0,0,2],["2026-09-01T03","PageView",1,0,0,1],["2026-09-02T00","PageView",1,0,0,1],["2026-09-02T01","PageView",2,0,0,2],["2026-09-02T02","PageView",1,0,0,1],["2026-09-02T03","PageView",1,0,0,1],["2026-09-02T04","PageView",2,0,0,2],["2026-09-02T06","PageView",3,0,0,3],["2026-09-02T06","ViewContent",3,0,0,3],["2026-09-02T08","PageView",4,0,0,4],["2026-09-02T08","ViewContent",3,0,0,3],["2026-09-02T11","PageView",3,0,0,3],["2026-09-02T11","ViewContent",3,0,0,3],["2026-09-02T12","PageView",2,0,0,2],["2026-09-02T13","PageView",2,0,0,2],["2026-09-02T15","PageView",3,0,0,3],["2026-09-02T15","ViewContent",3,0,0,3],["2026-09-02T16","PageView",3,0,0,3],["2026-09-02T17","PageView",5,0,0,5],["2026-09-02T17","ViewContent",1,0,0,1],["2026-09-02T18","PageView",1,0,0,1],["2026-09-02T19","PageView",2,0,0,2],["2026-09-02T20","PageView",1,0,0,1],["2026-09-02T21","PageView",1,0,0,1],["2026-09-03T00","PageView",1,0,0,1],["2026-09-03T01","PageView",2,0,0,2],["2026-09-03T08","PageView",1,0,0,1],["2026-09-03T11","PageView",1,0,0,1],["2026-09-03T12","PageView",1,0,0,1],["2026-09-03T13","PageView",1,0,0,1],["2026-09-03T14","PageView",3,0,0,3],["2026-09-03T14","ViewContent",1,0,0,1],["2026-09-03T15","PageView",2,0,0,2],["2026-09-03T16","PageView",1,0,0,1],["2026-09-03T17","PageView",2,0,0,2],["2026-09-03T18","PageView",1,0,0,1],["2026-09-03T20","PageView",1,0,0,1],["2026-09-03T22","PageView",1,0,0,1],["2026-09-03T23","PageView",2,0,0,2],["2026-09-04T01","PageView",2,0,0,2],["2026-09-04T03","PageView",2,0,0,2],["2026-09-04T03","ViewContent",1,0,0,1],["2026-09-04T06","PageView",1,0,0,1],["2026-09-04T10","PageView",4,0,0,4],["2026-09-04T11","PageView",2,0,0,2],["2026-09-04T12","PageView",2,0,0,2],["2026-09-04T17","PageView",1,0,0,1],["2026-09-04T18","PageView",1,0,0,1],["2026-09-04T19","InitiateCheckout",1,0,0,1],["2026-09-04T19","PageView",2,0,0,2],["2026-09-04T21","PageView",1,0,0,1],["2026-09-04T22","PageView",1,0,0,1],["2026-09-04T22","ViewContent",1,0,0,1],["2026-09-04T23","PageView",1,0,0,1],["2026-09-05T00","PageView",1,0,0,1],["2026-09-05T03","PageView",1,0,0,1],["2026-09-05T04","PageView",1,0,0,1],["2026-09-05T05","PageView",1,0,0,1],["2026-09-05T10","PageView",4,0,0,4],["2026-09-05T13","PageView",2,0,0,2],["2026-09-05T16","PageView",3,0,0,3],["2026-09-05T17","PageView",1,0,0,1],["2026-09-05T18","PageView",1,0,0,1],["2026-09-05T21","PageView",3,0,0,3],["2026-09-05T22","PageView",4,0,0,4],["2026-09-05T23","PageView",3,0,0,3],["2026-09-06T00","PageView",2,0,0,2],["2026-09-06T01","PageView",1,0,0,1],["2026-09-06T02","PageView",1,0,0,1],["2026-09-06T04","PageView",1,0,0,1],["2026-09-06T12","PageView",1,0,0,1],["2026-09-06T13","PageView",1,0,0,1],["2026-09-06T15","PageView",3,0,0,3],["2026-09-06T17","PageView",1,0,0,1],["2026-09-06T18","PageView",2,0,0,2],["2026-09-06T19","PageView",1,0,0,1],["2026-09-06T19","ViewContent",1,0,0,1],["2026-09-06T20","PageView",2,0,0,2],["2026-09-06T21","PageView",3,0,0,3],["2026-09-06T22","PageView",2,0,0,2],["2026-09-06T23","PageView",2,0,0,2],["2026-09-07T00","PageView",1,0,0,1],["2026-09-07T02","PageView",2,0,0,2],["2026-09-07T05","PageView",1,0,0,1],["2026-09-07T09","PageView",3,0,0,3],["2026-09-07T09","ViewContent",1,0,0,1],["2026-09-07T14","PageView",1,0,0,1],["2026-09-07T18","PageView",2,0,0,2],["2026-09-07T18","ViewContent",1,0,0,1],["2026-09-07T21","PageView",1,0,0,1],["2026-09-08T00","PageView",2,0,0,2],["2026-09-08T01","PageView",1,0,0,1],["2026-09-08T06","PageView",1,0,0,1],["2026-09-08T08","PageView",1,0,0,1],["2026-09-08T10","PageView",3,0,0,3],["2026-09-08T11","PageView",3,0,0,3],["2026-09-08T12","PageView",3,0,0,3],["2026-09-08T13","PageView",1,0,0,1],["2026-09-08T14","PageView",4,0,0,4],["2026-09-08T16","PageView",4,0,0,4],["2026-09-08T18","PageView",2,0,0,2],["2026-09-08T19","PageView",1,0,0,1],["2026-09-08T21","PageView",2,0,0,2],["2026-09-08T22","PageView",4,0,0,4],["2026-09-08T23","PageView",5,0,0,5],["2026-09-09T00","PageView",5,0,0,5],["2026-09-09T01","PageView",4,0,0,4],["2026-09-09T02","PageView",2,0,0,2],["2026-09-09T03","PageView",6,0,0,6],["2026-09-09T03","ViewContent",2,0,0,2],["2026-09-09T04","PageView",1,0,0,1],["2026-09-09T05","PageView",1,0,0,1],["2026-09-09T06","PageView",1,0,0,1],["2026-09-09T10","PageView",3,0,0,3],["2026-09-09T11","PageView",2,0,0,2],["2026-09-09T12","PageView",1,0,0,1],["2026-09-09T13","PageView",1,0,0,1],["2026-09-09T14","PageView",1,0,0,1],["2026-09-09T16","PageView",2,0,0,2],["2026-09-09T17","PageView",2,0,0,2],["2026-09-09T19","PageView",1,0,0,1],["2026-09-09T20","PageView",3,0,0,3],["2026-09-09T21","PageView",1,0,0,1],["2026-09-09T22","PageView",1,0,0,1],["2026-09-10T00","PageView",1,0,0,1],["2026-09-10T05","PageView",1,0,0,1],["2026-09-10T10","PageView",2,0,0,2],["2026-09-10T11","PageView",1,0,0,1],["2026-09-10T12","PageView",2,0,0,2],["2026-09-10T13","PageView",1,0,0,1],["2026-09-10T14","PageView",4,0,0,4],["2026-09-10T14","ViewContent",1,0,0,1],["2026-09-10T15","PageView",1,0,0,1],["2026-09-10T16","PageView",4,0,0,4],["2026-09-10T18","PageView",1,0,0,1],["2026-09-10T19","PageView",2,0,0,2],["2026-09-10T20","PageView",1,0,0,1],["2026-09-10T22","PageView",3,0,0,3],["2026-09-10T23","PageView",2,0,0,2],["2026-09-11T00","PageView",2,0,0,2],["2026-09-11T01","PageView",1,0,0,1],["2026-09-11T02","PageView",1,0,0,1],["2026-09-11T03","PageView",1,0,0,1],["2026-09-11T07","PageView",1,0,0,1],["2026-09-11T07","ViewContent",1,0,0,1],["2026-09-11T08","PageView",1,0,0,1],["2026-09-11T13","PageView",1,0,0,1],["2026-09-11T15","PageView",2,0,0,2],["2026-09-11T15","ViewContent",1,0,0,1],["2026-09-11T17","PageView",1,0,0,1],["2026-09-11T19","PageView",2,0,0,2],["2026-09-11T22","PageView",1,0,0,1],["2026-09-11T23","PageView",1,0,0,1],["2026-09-12T03","PageView",1,0,0,1],["2026-09-12T04","PageView",1,0,0,1],["2026-09-12T10","PageView",1,0,0,1],["2026-09-12T12","PageView",1,0,0,1],["2026-09-12T14","PageView",2,0,0,2],["2026-09-12T16","PageView",2,0,0,2],["2026-09-12T18","PageView",4,0,0,4],["2026-09-12T19","PageView",11,0,0,11],["2026-09-12T20","PageView",1,0,0,1],["2026-09-12T21","PageView",2,0,0,2],["2026-09-12T21","ViewContent",1,0,0,1],["2026-09-12T23","PageView",3,0,0,3],["2026-09-13T06","PageView",1,0,0,1],["2026-09-13T11","PageView",1,0,0,1],["2026-09-13T12","PageView",2,0,0,2],["2026-09-13T18","PageView",1,0,0,1],["2026-09-13T19","PageView",1,0,0,1],["2026-09-13T21","PageView",4,0,0,4],["2026-09-13T23","PageView",1,0,0,1],["2026-09-14T03","PageView",1,0,0,1],["2026-09-14T15","PageView",1,0,0,1],["2026-09-14T16","PageView",1,0,0,1],["2026-09-14T17","PageView",3,0,0,3],["2026-09-14T19","PageView",2,0,0,2],["2026-09-14T21","PageView",1,0,0,1],["2026-09-14T21","ViewContent",1,0,0,1],["2026-09-14T22","PageView",2,0,0,2],["2026-09-14T23","PageView",2,0,0,2],["2026-09-15T00","PageView",3,0,0,3],["2026-09-15T03","PageView",28,0,0,28],["2026-09-15T04","PageView",1,0,0,1],["2026-09-15T05","PageView",1,0,0,1],["2026-09-15T07","PageView",1,0,0,1],["2026-09-15T08","PageView",1,0,0,1],["2026-09-15T09","PageView",2,0,0,2],["2026-09-15T10","PageView",2,0,0,2],["2026-09-15T12","PageView",4,0,0,4],["2026-09-15T13","PageView",2,0,0,2],["2026-09-15T16","PageView",4,0,0,4],["2026-09-15T16","ViewContent",1,0,0,1],["2026-09-15T18","PageView",1,0,0,1],["2026-09-15T20","PageView",2,0,0,2],["2026-09-15T20","ViewContent",1,0,0,1],["2026-09-15T21","PageView",3,0,0,3],["2026-09-15T21","ViewContent",2,0,0,2],["2026-09-15T22","PageView",1,0,0,1],["2026-09-15T22","ViewContent",1,0,0,1],["2026-09-15T23","PageView",3,0,0,3],["2026-09-16T01","PageView",1,0,0,1],["2026-09-16T03","PageView",2,0,0,2],["2026-09-16T03","ViewContent",2,0,0,2],["2026-09-16T04","PageView",2,0,0,2],["2026-09-16T09","PageView",3,0,0,3],["2026-09-16T09","ViewContent",1,0,0,1],["2026-09-16T10","PageView",1,0,0,1],["2026-09-16T11","PageView",2,0,0,2],["2026-09-16T12","PageView",1,0,0,1],["2026-09-16T15","PageView",2,0,0,2],["2026-09-16T16","PageView",2,0,0,2],["2026-09-16T17","PageView",3,0,0,3],["2026-09-16T18","PageView",5,0,0,5],["2026-09-16T19","PageView",4,0,0,4],["2026-09-16T20","PageView",5,0,0,5],["2026-09-16T21","PageView",5,0,0,5],["2026-09-16T22","PageView",1,0,0,1],["2026-09-16T23","PageView",4,0,0,4],["2026-09-17T00","PageView",2,0,0,2],["2026-09-17T01","PageView",3,0,0,3],["2026-09-17T01","ViewContent",2,0,0,2],["2026-09-17T02","PageView",3,0,0,3],["2026-09-17T03","PageView",2,0,0,2],["2026-09-17T04","PageView",1,0,0,1],["2026-09-17T05","PageView",1,0,0,1],["2026-09-17T10","PageView",3,0,0,3],["2026-09-17T11","PageView",3,0,0,3],["2026-09-17T13","PageView",2,0,0,2],["2026-09-17T14","PageView",3,0,0,3],["2026-09-17T15","PageView",2,0,0,2],["2026-09-17T17","PageView",3,0,0,3],["2026-09-18T00","PageView",1,0,0,1],["2026-09-18T01","PageView",9,0,0,9],["2026-09-18T01","ViewContent",5,0,0,5],["2026-09-18T03","PageView",1,0,0,1],["2026-09-18T04","PageView",1,0,0,1],["2026-09-18T04","ViewContent",1,0,0,1],["2026-09-18T06","PageView",1,0,0,1],["2026-09-18T10","PageView",1,0,0,1],["2026-09-18T11","PageView",1,0,0,1],["2026-09-18T19","PageView",6,0,0,6],["2026-09-18T20","PageView",5,0,0,5],["2026-09-18T21","PageView",6,0,0,6],["2026-09-18T22","PageView",1,0,0,1],["2026-09-18T23","PageView",1,0,0,1],["2026-09-19T00","PageView",1,0,0,1],["2026-09-19T02","PageView",1,0,0,1],["2026-09-19T03","PageView",1,0,0,1],["2026-09-19T10","PageView",1,0,0,1],["2026-09-19T11","PageView",3,0,0,3],["2026-09-19T12","PageView",2,0,0,2],["2026-09-19T13","PageView",2,0,0,2],["2026-09-19T14","PageView",2,0,0,2],["2026-09-19T15","Lead",2,0,0,2],["2026-09-19T15","PageView",6,0,0,6],["2026-09-19T16","Lead",1,0,0,1],["2026-09-19T16","PageView",9,0,0,9],["2026-09-19T17","Lead",1,0,0,1],["2026-09-19T17","PageView",3,0,0,3],["2026-09-19T18","Lead",10,0,0,10],["2026-09-19T18","PageView",36,0,0,36],["2026-09-19T19","Lead",11,0,0,11],["2026-09-19T19","PageView",33,0,0,33],["2026-09-19T20","Lead",8,0,0,8],["2026-09-19T20","PageView",29,0,0,29],["2026-09-19T21","Lead",3,0,0,3],["2026-09-19T21","PageView",17,0,0,17],["2026-09-19T22","Lead",3,0,0,3],["2026-09-19T22","PageView",12,0,0,12],["2026-09-19T23","Lead",2,0,0,2],["2026-09-19T23","PageView",18,0,0,18],["2026-09-19T23","ViewContent",2,0,0,2],["2026-09-20T00","Lead",5,0,0,5],["2026-09-20T00","PageView",16,0,0,16],["2026-09-20T01","Lead",4,0,0,4],["2026-09-20T01","PageView",8,0,0,8],["2026-09-20T02","Lead",4,0,0,4],["2026-09-20T02","PageView",13,0,0,13],["2026-09-20T03","PageView",2,0,0,2],["2026-09-20T04","Lead",2,0,0,2],["2026-09-20T04","PageView",8,0,0,8],["2026-09-20T05","Lead",1,0,0,1],["2026-09-20T05","PageView",2,0,0,2],["2026-09-20T06","Lead",1,0,0,1],["2026-09-20T06","PageView",3,0,0,3],["2026-09-20T07","PageView",1,0,0,1],["2026-09-20T09","Lead",1,0,0,1],["2026-09-20T09","PageView",13,0,0,13],["2026-09-20T09","ViewContent",2,0,0,2],["2026-09-20T10","Lead",1,0,0,1],["2026-09-20T10","PageView",2,0,0,2],["2026-09-20T11","Lead",2,0,0,2],["2026-09-20T11","PageView",12,0,0,12],["2026-09-20T11","ViewContent",1,0,0,1],["2026-09-20T12","Lead",3,0,0,3],["2026-09-20T12","PageView",16,0,0,16],["2026-09-20T12","ViewContent",2,0,0,2],["2026-09-20T14","Lead",1,0,0,1],["2026-09-20T14","PageView",8,0,0,8],["2026-09-20T15","Lead",2,0,0,2],["2026-09-20T15","PageView",6,0,0,6],["2026-09-20T16","Lead",1,0,0,1],["2026-09-20T16","PageView",3,0,0,3],["2026-09-20T18","PageView",1,0,0,1],["2026-09-20T19","Lead",1,0,0,1],["2026-09-20T19","PageView",3,0,0,3],["2026-09-20T20","PageView",1,0,0,1],["2026-09-20T21","PageView",3,0,0,3],["2026-09-20T22","PageView",5,0,0,5],["2026-09-20T22","ViewContent",2,0,0,2],["2026-09-20T23","PageView",2,0,0,2],["2026-09-21T00","PageView",1,0,0,1],["2026-09-21T02","PageView",1,0,0,1],["2026-09-21T06","PageView",1,0,0,1],["2026-09-21T11","PageView",8,0,0,8],["2026-09-21T11","ViewContent",4,0,0,4],["2026-09-21T12","PageView",4,0,0,4],["2026-09-21T13","PageView",9,0,0,9],["2026-09-21T13","ViewContent",3,0,0,3],["2026-09-21T14","Lead",1,0,0,1],["2026-09-21T14","PageView",3,0,0,3],["2026-09-21T16","PageView",3,0,0,3],["2026-09-21T17","InitiateCheckout",1,0,0,1],["2026-09-21T17","PageView",4,0,0,4],["2026-09-21T18","PageView",1,0,0,1],["2026-09-21T19","Lead",1,0,0,1],["2026-09-21T19","PageView",6,0,0,6],["2026-09-21T20","PageView",2,0,0,2],["2026-09-21T23","PageView",1,0,0,1],["2026-09-22T00","PageView",4,0,0,4],["2026-09-22T01","PageView",1,0,0,1],["2026-09-22T03","PageView",4,0,0,4],["2026-09-22T06","PageView",1,0,0,1],["2026-09-22T07","PageView",2,0,0,2],["2026-09-22T09","PageView",1,0,0,1],["2026-09-22T11","PageView",3,0,0,3],["2026-09-22T13","PageView",2,0,0,2],["2026-09-22T14","PageView",4,0,0,4],["2026-09-22T15","PageView",2,0,0,2],["2026-09-22T18","PageView",1,0,0,1],["2026-09-22T19","PageView",3,0,0,3],["2026-09-22T19","ViewContent",3,0,0,3],["2026-09-22T20","Lead",1,0,0,1],["2026-09-22T20","PageView",5,0,0,5],["2026-09-22T20","ViewContent",1,0,0,1],["2026-09-22T21","Lead",2,0,0,2],["2026-09-22T21","PageView",12,0,0,12],["2026-09-22T22","PageView",3,0,0,3],["2026-09-22T22","ViewContent",1,0,0,1],["2026-09-22T23","PageView",4,0,0,4],["2026-09-23T00","Lead",1,0,0,1],["2026-09-23T00","PageView",3,0,0,3],["2026-09-23T01","PageView",1,0,0,1],["2026-09-23T02","PageView",5,0,0,5],["2026-09-23T04","Lead",1,0,0,1],["2026-09-23T04","PageView",4,0,0,4],["2026-09-23T07","PageView",1,0,0,1],["2026-09-23T09","Lead",2,0,0,2],["2026-09-23T09","PageView",4,0,0,4],["2026-09-23T10","PageView",1,0,0,1],["2026-09-23T11","PageView",1,0,0,1],["2026-09-23T12","PageView",7,0,0,7],["2026-09-23T12","ViewContent",4,0,0,4],["2026-09-23T13","PageView",5,0,0,5],["2026-09-23T14","Lead",2,0,0,2],["2026-09-23T14","PageView",7,0,0,7],["2026-09-23T14","ViewContent",1,0,0,1],["2026-09-23T15","Lead",1,0,0,1],["2026-09-23T15","PageView",8,0,0,8],["2026-09-23T15","ViewContent",1,0,0,1],["2026-09-23T16","PageView",2,0,0,2],["2026-09-23T16","ViewContent",1,0,0,1],["2026-09-23T17","PageView",2,0,0,2],["2026-09-23T18","Lead",1,0,0,1],["2026-09-23T18","PageView",4,0,0,4],["2026-09-23T19","Lead",1,0,0,1],["2026-09-23T19","PageView",6,0,0,6],["2026-09-23T20","PageView",4,0,0,4],["2026-09-23T20","ViewContent",1,0,0,1],["2026-09-23T21","Lead",2,0,0,2],["2026-09-23T21","PageView",8,0,0,8],["2026-09-23T22","PageView",3,0,0,3],["2026-09-23T23","Lead",1,0,0,1],["2026-09-23T23","PageView",4,0,0,4],["2026-09-24T01","PageView",1,0,0,1],["2026-09-24T02","PageView",3,0,0,3],["2026-09-24T02","ViewContent",1,0,0,1],["2026-09-24T03","PageView",2,0,0,2],["2026-09-24T04","PageView",3,0,0,3],["2026-09-24T09","PageView",2,0,0,2],["2026-09-24T11","PageView",2,0,0,2],["2026-09-24T12","PageView",4,0,0,4],["2026-09-24T12","ViewContent",3,0,0,3],["2026-09-24T13","PageView",2,0,0,2],["2026-09-24T14","PageView",3,0,0,3],["2026-09-24T15","PageView",2,0,0,2],["2026-09-24T16","PageView",3,0,0,3],["2026-09-24T17","PageView",4,0,0,4],["2026-09-24T18","PageView",1,0,0,1],["2026-09-24T19","PageView",1,0,0,1],["2026-09-24T20","PageView",3,0,0,3],["2026-09-24T20","ViewContent",1,0,0,1],["2026-09-24T21","Lead",1,0,0,1],["2026-09-24T21","PageView",5,0,0,5],["2026-09-24T22","Lead",1,0,0,1],["2026-09-24T22","PageView",13,0,0,13],["2026-09-24T23","Lead",2,0,0,2],["2026-09-24T23","PageView",9,0,0,9],["2026-09-25T00","Lead",1,0,0,1],["2026-09-25T00","PageView",13,0,0,13],["2026-09-25T00","ViewContent",2,0,0,2],["2026-09-25T01","Lead",2,0,0,2],["2026-09-25T01","PageView",70,0,0,70],["2026-09-25T01","ViewContent",2,0,0,2],["2026-09-25T02","Lead",3,0,0,3],["2026-09-25T02","PageView",22,0,0,22],["2026-09-25T03","Lead",2,0,0,2],["2026-09-25T03","PageView",16,0,0,16],["2026-09-25T03","ViewContent",4,0,0,4],["2026-09-25T04","Lead",2,0,0,2],["2026-09-25T04","PageView",6,0,0,6],["2026-09-25T06","PageView",1,0,0,1],["2026-09-25T07","PageView",1,0,0,1],["2026-09-25T08","PageView",1,0,0,1],["2026-09-25T10","InitiateCheckout",1,0,0,1],["2026-09-25T10","Lead",3,0,0,3],["2026-09-25T10","PageView",11,0,0,11],["2026-09-25T10","ViewContent",2,0,0,2],["2026-09-25T11","Lead",2,0,0,2],["2026-09-25T11","PageView",16,0,0,16],["2026-09-25T11","ViewContent",1,0,0,1],["2026-09-25T12","Lead",2,0,0,2],["2026-09-25T12","PageView",5,0,0,5],["2026-09-25T13","Lead",2,0,0,2],["2026-09-25T13","PageView",18,0,0,18],["2026-09-25T14","Lead",3,0,0,3],["2026-09-25T14","PageView",22,0,0,22],["2026-09-25T14","ViewContent",3,0,0,3],["2026-09-25T15","Lead",1,0,0,1],["2026-09-25T15","PageView",14,0,0,14],["2026-09-25T15","ViewContent",1,0,0,1],["2026-09-25T16","PageView",8,0,0,8],["2026-09-25T16","ViewContent",3,0,0,3],["2026-09-25T17","Lead",1,0,0,1],["2026-09-25T17","PageView",8,0,0,8],["2026-09-25T17","ViewContent",1,0,0,1],["2026-09-25T18","Lead",7,0,0,7],["2026-09-25T18","PageView",36,0,0,36],["2026-09-25T19","Lead",4,0,0,4],["2026-09-25T19","PageView",14,0,0,14],["2026-09-25T20","Lead",2,0,0,2],["2026-09-25T20","PageView",22,0,0,22],["2026-09-25T21","PageView",9,0,0,9],["2026-09-25T22","PageView",1,0,0,1],["2026-09-25T23","PageView",1,0,0,1],["2026-09-26T00","PageView",1,0,0,1],["2026-09-26T01","PageView",6,0,0,6],["2026-09-26T01","ViewContent",1,0,0,1],["2026-09-26T03","PageView",3,0,0,3],["2026-09-26T04","Lead",1,0,0,1],["2026-09-26T04","PageView",6,0,0,6],["2026-09-26T10","PageView",1,0,0,1],["2026-09-26T11","PageView",1,0,0,1],["2026-09-26T12","PageView",1,0,0,1],["2026-09-26T13","PageView",1,0,0,1],["2026-09-26T16","PageView",11,0,0,11],["2026-09-26T16","ViewContent",10,0,0,10],["2026-09-26T17","PageView",1,0,0,1],["2026-09-26T18","PageView",4,0,0,4],["2026-09-26T18","ViewContent",1,0,0,1],["2026-09-26T20","PageView",3,0,0,3],["2026-09-26T21","PageView",2,0,0,2],["2026-09-26T22","PageView",1,0,0,1],["2026-09-27T01","PageView",1,0,0,1],["2026-09-27T01","ViewContent",1,0,0,1],["2026-09-27T02","PageView",4,0,0,4],["2026-09-27T02","ViewContent",1,0,0,1],["2026-09-27T03","PageView",5,0,0,5],["2026-09-27T03","ViewContent",1,0,0,1],["2026-09-27T11","PageView",1,0,0,1],["2026-09-27T12","Lead",1,0,0,1],["2026-09-27T12","PageView",5,0,0,5],["2026-09-27T13","PageView",3,0,0,3],["2026-09-27T13","ViewContent",2,0,0,2],["2026-09-27T14","PageView",1,0,0,1],["2026-09-27T16","Lead",1,0,0,1],["2026-09-27T16","PageView",3,0,0,3],["2026-09-27T17","Lead",2,0,0,2],["2026-09-27T17","PageView",20,0,0,20],["2026-09-27T17","ViewContent",1,0,0,1],["2026-09-27T20","PageView",2,0,0,2],["2026-09-27T20","ViewContent",1,0,0,1],["2026-09-27T23","PageView",1,0,0,1],["2026-09-28T01","PageView",1,0,0,1],["2026-09-28T02","PageView",2,0,0,2],["2026-09-28T08","PageView",2,0,0,2],["2026-09-28T09","PageView",2,0,0,2],["2026-09-28T11","PageView",2,0,0,2],["2026-09-28T12","Lead",1,0,0,1],["2026-09-28T12","PageView",4,0,0,4]];
+const EVENTS = ["PageView","ViewContent","Lead","InitiateCheckout","AddToCart","CompleteRegistration","Contact","Purchase"];
+const COLOR = {PageView:"var(--pv)",ViewContent:"var(--vc)",Lead:"var(--lead)",InitiateCheckout:"var(--ic)"};
+const LABEL = {PageView:"PageView",ViewContent:"ViewContent",Lead:"Lead",InitiateCheckout:"InitiateCheckout"};
+let rows = SEED.map(r=>({t:r[0],ev:r[1],br:r[2],sv:r[3],ot:r[4],tot:r[5]}));
+let range = "all";
+try{ const r = localStorage.getItem("pixel-range"); if(r) range = r; }catch(e){}
+
+const fmt = n => n.toLocaleString("pt-BR");
+const pct = (a,b,d=1) => b ? (a/b*100).toLocaleString("pt-BR",{maximumFractionDigits:d,minimumFractionDigits:d})+"%" : "—";
+const dLabel = d => d.slice(8,10)+"/"+d.slice(5,7);
+const addDays = (d,n) => { const x=new Date(d+"T00:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); };
+const WD = ["dom","seg","ter","qua","qui","sex","sáb"];
+const wd = d => WD[new Date(d+"T00:00:00Z").getUTCDay()];
+
+function filtered(){
+  if(range==="all") return rows;
+  const days = [...new Set(rows.map(r=>r.t.slice(0,10)))].sort();
+  let start;
+  if(range==="lead"){ const l = rows.filter(r=>r.ev==="Lead").map(r=>r.t).sort()[0]; start = l ? l.slice(0,10) : days[0]; }
+  else start = addDays(days[days.length-1], -6);
+  return rows.filter(r=>r.t.slice(0,10)>=start);
+}
+
+function aggregate(rs){
+  const days = [...new Set(rs.map(r=>r.t.slice(0,10)))].sort();
+  const allDays = []; if(days.length){ for(let d=days[0]; d<=days[days.length-1]; d=addDays(d,1)) allDays.push(d); }
+  const byDay = {}, byHour = {}, tot = {}, src = {};
+  allDays.forEach(d=>byDay[d]={});
+  for(let h=0;h<24;h++) byHour[h]={};
+  for(const r of rs){
+    const d=r.t.slice(0,10), h=+r.t.slice(11,13);
+    byDay[d][r.ev]=(byDay[d][r.ev]||0)+r.tot;
+    byHour[h][r.ev]=(byHour[h][r.ev]||0)+r.tot;
+    tot[r.ev]=(tot[r.ev]||0)+r.tot;
+    src[r.ev]=src[r.ev]||{br:0,sv:0,ot:0,tot:0};
+    src[r.ev].br+=r.br; src[r.ev].sv+=r.sv; src[r.ev].ot+=r.ot; src[r.ev].tot+=r.tot;
+  }
+  const evs = Object.keys(tot).sort((a,b)=>(EVENTS.indexOf(a)+99*(EVENTS.indexOf(a)<0))-(EVENTS.indexOf(b)+99*(EVENTS.indexOf(b)<0)));
+  return {days:allDays, byDay, byHour, tot, src, evs, rs};
+}
+
+/* ---------- gargalos: regras calculadas sobre os dados ---------- */
+function diagnose(A){
+  const out=[], T=A.tot, g=e=>T[e]||0;
+  const all = Object.values(A.src).reduce((a,s)=>({sv:a.sv+s.sv,tot:a.tot+s.tot}),{sv:0,tot:0});
+  const svShare = all.tot? all.sv/all.tot : 0;
+  if(svShare < .1) out.push({sev:"critical", title:`API de Conversões inativa: ${pct(all.sv,all.tot,0)} dos eventos chegam pelo servidor`,
+    body:`Todos os ${fmt(all.tot)} eventos do período vieram só do navegador. Bloqueadores de anúncio, iOS 14+ e navegação anônima derrubam parte desses disparos, e a Meta recebe menos sinais para otimizar e atribuir. A qualidade de correspondência (EMQ) também fica baixa sem e-mail/telefone com hash.`,
+    fix:`Ativar CAPI (Gateway da Meta, integração nativa da plataforma ou GTM Server) para Lead e PageView, enviando <b>event_id</b> igual no pixel e no servidor para deduplicar, mais em/ph/fn com hash.`});
+
+  if(g("Lead") && g("ViewContent") < g("Lead")) out.push({sev:"serious", title:`Funil invertido: ${fmt(g("ViewContent"))} ViewContent para ${fmt(g("Lead"))} Leads`,
+    body:`Em um funil normal ViewContent fica entre PageView e Lead. Aqui ele é menor que o próprio Lead, então não está disparando na página de captura (dispara só em algumas páginas). A Meta perde o sinal de interesse e não dá para medir onde o visitante abandona.`,
+    fix:`Disparar <b>ViewContent</b> em todas as páginas de oferta/captura (ou ao rolar 50% da LP) e conferir no Pixel Helper se aparece antes do Lead.`});
+
+  if(g("Lead")){
+    const ic=g("InitiateCheckout");
+    if(ic/g("Lead") < .05) out.push({sev:"serious", title:`InitiateCheckout quase parado: ${fmt(ic)} no período (${pct(ic,g("Lead"))} dos Leads)`,
+      body:`Com ${fmt(g("Lead"))} leads, só ${fmt(ic)} checkouts iniciados${ic? " espalhados em dias isolados":""}. Ou o botão de compra/WhatsApp não está instrumentado, ou o passo depois do lead está travando. Não há evento <b>Purchase</b> nas exportações, então a Meta não vê venda nenhuma.`,
+      fix:`Revisar o disparo de InitiateCheckout no botão de compra/checkout, criar <b>Purchase</b> (ou Lead qualificado via CAPI a partir do CRM) e usar esse evento como otimização quando passar de ~50/semana.`});
+  }
+
+  const leadDays = A.days.filter(d=>A.byDay[d].Lead);
+  if(g("Lead") && A.days.length){
+    const firstLead = leadDays[0];
+    const before = A.days.filter(d=>d<firstLead);
+    if(before.length>=3){
+      const pvB = before.reduce((s,d)=>s+(A.byDay[d].PageView||0),0);
+      const after = A.days.filter(d=>d>=firstLead);
+      const pvA = after.reduce((s,d)=>s+(A.byDay[d].PageView||0),0);
+      out.push({sev:"warning", title:`Lead só começa a registrar em ${dLabel(firstLead)}: ${before.length} dias sem nenhum Lead`,
+        body:`Entre ${dLabel(A.days[0])} e ${dLabel(before[before.length-1])} houve ${fmt(pvB)} PageViews (${fmt(Math.round(pvB/before.length))}/dia) e zero Lead. A partir de ${dLabel(firstLead)} o tráfego sobe para ${fmt(Math.round(pvA/after.length))}/dia. Se a LP já captava antes, esses leads não foram atribuídos a nenhum anúncio.`,
+        fix:`Confirmar se o evento Lead foi instalado nessa data ou se a campanha começou nela. Registrar a data de instalação de cada evento no changelog do cliente.`});
+    }
+    const sorted = [...leadDays].sort((a,b)=>A.byDay[b].Lead-A.byDay[a].Lead);
+    const top = sorted.slice(0,3), topSum = top.reduce((s,d)=>s+A.byDay[d].Lead,0);
+    if(leadDays.length>=5 && topSum/g("Lead")>.6) out.push({sev:"warning", title:`${pct(topSum,g("Lead"),0)} dos leads vieram de 3 dias (${top.map(dLabel).join(", ")})`,
+      body:`Fora desses picos a média cai para ${(( g("Lead")-topSum)/Math.max(1,A.days.filter(d=>d>=leadDays[0]).length-3)).toLocaleString("pt-BR",{maximumFractionDigits:1})} lead/dia. Picos curtos seguidos de queda indicam impulso de verba/novo criativo que satura em 1–2 dias, ou disparo em lote.`,
+      fix:`Cruzar esses dias com alterações de orçamento e criativos no Gerenciador. Se foi verba, suavizar com orçamento diário estável; se foi criativo, rodar rotação a cada 3–4 dias.`});
+
+    const lr = leadDays.length ? A.days.filter(d=>d>=leadDays[0]) : [];
+    if(lr.length>=6){
+      const rate = ds => { const l=ds.reduce((s,d)=>s+(A.byDay[d].Lead||0),0), p=ds.reduce((s,d)=>s+(A.byDay[d].PageView||0),0); return {l,p,r:p?l/p:0}; };
+      const a=rate(lr.slice(0,3)), b=rate(lr.slice(-3));
+      if(a.r && b.r < a.r*.6) out.push({sev:"serious", title:`Conversão da página caiu de ${pct(a.l,a.p)} para ${pct(b.l,b.p)}`,
+        body:`Nos 3 primeiros dias com Lead, ${pct(a.l,a.p)} dos PageViews viravam lead; nos 3 últimos, ${pct(b.l,b.p)}. O tráfego continua chegando, mas converte menos: público mais frio, fadiga de criativo ou problema no formulário.`,
+        fix:`Testar o formulário ponta a ponta em mobile, checar tempo de carregamento da LP e comparar CTR/frequência dos anúncios nos mesmos dias.`});
+    }
+  }
+
+  // horas mortas
+  const hp = Array.from({length:24},(_,h)=>A.byHour[h].PageView||0), tp = hp.reduce((a,b)=>a+b,0);
+  if(tp>100){
+    const hl = Array.from({length:24},(_,h)=>A.byHour[h].Lead||0);
+    const win = [18,19,20,21], wl = win.reduce((s,h)=>s+hl[h],0);
+    const low = hp.map((v,h)=>[v,h]).sort((a,b)=>a[0]-b[0]).slice(0,4).map(x=>x[1]).sort((a,b)=>a-b);
+    const lowShare = low.reduce((s,h)=>s+hp[h],0)/tp;
+    if(g("Lead")) out.push({sev:"warning", title:`${pct(wl,g("Lead"),0)} dos leads saem entre 18h e 22h; ${low.map(h=>h+"h").join(", ")} quase não recebem tráfego`,
+      body:`As 4 horas mais fracas somam ${pct(lowShare*tp,tp,1)} dos PageViews. O pico de conversão fica no começo da noite.`,
+      fix:`Se o atendimento é humano, escalar a equipe para 18–22h (lead respondido em até 5 min converte muito mais). Em campanhas com orçamento vitalício, testar programação reduzida de madrugada.`});
+  }
+
+  // falhas de coleta: horas seguidas sem PageView
+  const pvHours = new Set(A.rs.filter(r=>r.ev==="PageView").map(r=>r.t));
+  let maxGap=0, gapStart=null, cur=0, curStart=null;
+  if(A.days.length) for(const d of A.days) for(let h=0;h<24;h++){
+    const k=d+"T"+String(h).padStart(2,"0");
+    if(!pvHours.has(k)){ if(!cur) curStart=k; cur++; if(cur>maxGap){maxGap=cur;gapStart=curStart;} } else cur=0;
+  }
+  if(maxGap>=10) out.push({sev:"warning", title:`Maior janela sem nenhum PageView: ${maxGap} horas (a partir de ${dLabel(gapStart.slice(0,10))} ${gapStart.slice(11)}h)`,
+    body:`Com o volume atual, ${maxGap}h seguidas sem um único PageView sugere anúncios pausados, site fora do ar ou pixel removido de alguma página nesse intervalo.`,
+    fix:`Criar alerta no Events Manager ("Diagnóstico" → notificações) para queda de eventos e checar o histórico do Gerenciador nessa janela.`});
+
+  if(!out.length) out.push({sev:"ok", title:"Nenhum gargalo detectado no período", body:"Os eventos seguem a ordem esperada do funil e há sinal de servidor.", fix:""});
+  const order={critical:0,serious:1,warning:2,ok:3};
+  return out.sort((a,b)=>order[a.sev]-order[b.sev]);
+}
+
+/* ---------- desenho ---------- */
+const tip = document.getElementById("tip");
+function showTip(el, html, x, y){ const r = el.getBoundingClientRect();
+  tip.innerHTML = html; tip.hidden = false; tip.style.left = (r.left + window.scrollX + x) + "px"; tip.style.top = (r.top + window.scrollY + y) + "px"; }
+function hideTip(){ tip.hidden = true; }
+
+const ticks = max => [4,5,2,3].find(k=>Number.isInteger(max/k*10)&&Number.isInteger(max/k)) || 4;
+function niceMax(v){ if(v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+
+function barChart(id, labels, values, color, {height=190, fmtV=fmt, tipLabel=l=>l, xEvery=null, unit=""}={}){
+  const el = document.getElementById(id);
+  const W = Math.max(320, el.clientWidth || 600), H = height, m={t:10,r:8,b:22,l:38};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b, n=labels.length, max=niceMax(Math.max(...values,0));
+  const bw = iw/n, gap = Math.min(4, bw*.25), y=v=>m.t+ih-(v/max)*ih;
+  const every = xEvery || Math.ceil(n/ Math.max(4, Math.floor(iw/46)));
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${id}">`;
+  const nt=ticks(max); for(let i=0;i<=nt;i++){ const v=max*i/nt, yy=y(v); s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${m.l-6}" y="${yy+4}" text-anchor="end">${fmtV(v)}</text>`; }
+  values.forEach((v,i)=>{ const x=m.l+i*bw+gap/2, w=bw-gap, yy=y(v), h=m.t+ih-yy;
+    if(h>0){ const rr=Math.min(3,w/2,h); s+=`<path d="M${x},${m.t+ih} V${yy+rr} Q${x},${yy} ${x+rr},${yy} H${x+w-rr} Q${x+w},${yy} ${x+w},${yy+rr} V${m.t+ih} Z" fill="${color}"/>`; }
+    if(i%every===0) s+=`<text x="${x+w/2}" y="${H-6}" text-anchor="middle">${labels[i]}</text>`;
+    s+=`<rect x="${m.l+i*bw}" y="${m.t}" width="${bw}" height="${ih}" fill="transparent" data-i="${i}"/>`; });
+  const mi = values.indexOf(Math.max(...values));
+  if(values[mi]>0){ const x=m.l+mi*bw+bw/2; s+=`<text class="lbl" x="${Math.min(W-m.r-20,Math.max(m.l+20,x))}" y="${y(values[mi])-5}" text-anchor="middle">${fmtV(values[mi])}${unit}</text>`; }
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}" stroke="var(--ink-3)"/></svg>`;
+  el.innerHTML = s;
+  el.querySelectorAll("rect[data-i]").forEach(r=>{
+    r.addEventListener("mouseenter",()=>{ const i=+r.dataset.i; r.setAttribute("fill","var(--grid)"); r.setAttribute("fill-opacity",".5");
+      const sc = el.clientWidth/W; showTip(el, `${tipLabel(labels[i],i)}<br><b>${fmtV(values[i])}${unit}</b>`, (m.l+i*bw+bw/2)*sc, y(values[i])*sc); });
+    r.addEventListener("mouseleave",()=>{ r.setAttribute("fill","transparent"); hideTip(); });
+  });
+}
+
+function lineChart(id, labels, values, color, {height=190, tipLabel=l=>l}={}){
+  const el = document.getElementById(id);
+  const W = Math.max(320, el.clientWidth || 600), H=height, m={t:14,r:12,b:22,l:42};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b, n=labels.length;
+  const vals = values.filter(v=>v!=null), max=niceMax(Math.max(...vals,0)*1.05);
+  const x=i=>m.l+(n<=1?iw/2:i*iw/(n-1)), y=v=>m.t+ih-(v/max)*ih;
+  const every = Math.ceil(n/Math.max(4,Math.floor(iw/46)));
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${id}">`;
+  const nt=ticks(max); for(let i=0;i<=nt;i++){ const v=max*i/nt; s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${y(v)+4}" text-anchor="end">${v.toLocaleString("pt-BR",{maximumFractionDigits:1})}%</text>`; }
+  labels.forEach((l,i)=>{ if(i%every===0) s+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${l}</text>`; });
+  let d="", area="", first=null, last=null;
+  values.forEach((v,i)=>{ if(v==null) return; d+=(d?"L":"M")+x(i)+","+y(v)+" "; if(first==null) first=i; last=i; });
+  if(d){ area = d + `L${x(last)},${m.t+ih} L${x(first)},${m.t+ih} Z`;
+    s+=`<path d="${area}" fill="${color}" fill-opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+    s+=`<circle cx="${x(last)}" cy="${y(values[last])}" r="4" fill="${color}" stroke="var(--surface)" stroke-width="2"/>`;
+    s+=`<text class="lbl" x="${Math.min(x(last),W-m.r-18)}" y="${y(values[last])-9}" text-anchor="middle">${values[last].toLocaleString("pt-BR",{maximumFractionDigits:1})}%</text>`; }
+  s+=`<line id="${id}-x" x1="0" x2="0" y1="${m.t}" y2="${m.t+ih}" stroke="var(--ink-3)" stroke-dasharray="3 3" visibility="hidden"/>`;
+  s+=`<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" class="hit"/></svg>`;
+  el.innerHTML=s;
+  const hit=el.querySelector(".hit"), xl=el.querySelector(`#${id}-x`);
+  hit.addEventListener("mousemove",e=>{ const sc=el.clientWidth/W, px=(e.clientX-el.getBoundingClientRect().left)/sc;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-m.l)/(iw/Math.max(1,n-1))))); xl.setAttribute("x1",x(i)); xl.setAttribute("x2",x(i)); xl.setAttribute("visibility","visible");
+    const v=values[i]; showTip(el, `${tipLabel(labels[i],i)}<br><b>${v==null?"sem Lead ainda":v.toLocaleString("pt-BR",{maximumFractionDigits:1})+"%"}</b>`, x(i)*sc, (v==null?m.t+ih:y(v))*sc); });
+  hit.addEventListener("mouseleave",()=>{ xl.setAttribute("visibility","hidden"); hideTip(); });
+}
+
+function render(){
+  const rs = filtered(), A = aggregate(rs), T=A.tot, g=e=>T[e]||0;
+  document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.r===range));
+  const d0=A.days[0], d1=A.days[A.days.length-1];
+  document.getElementById("period").textContent = d0 ? `${dLabel(d0)}/${d0.slice(0,4)} a ${dLabel(d1)}/${d1.slice(0,4)} · ${A.days.length} dias · ${fmt(rs.length)} linhas horárias` : "Sem dados";
+
+  const all = Object.values(A.src).reduce((a,s)=>({sv:a.sv+s.sv,tot:a.tot+s.tot}),{sv:0,tot:0});
+  const nd = Math.max(1,A.days.length);
+  const k = [
+    {ev:"PageView", v:fmt(g("PageView")), s:`${fmt(Math.round(g("PageView")/nd))}/dia`},
+    {ev:"ViewContent", v:fmt(g("ViewContent")), s:`${pct(g("ViewContent"),g("PageView"))} dos PageViews`},
+    {ev:"Lead", v:fmt(g("Lead")), s:`${pct(g("Lead"),g("PageView"))} dos PageViews`},
+    {ev:"InitiateCheckout", v:fmt(g("InitiateCheckout")), s:`${pct(g("InitiateCheckout"),g("Lead"))} dos Leads`},
+  ];
+  document.getElementById("kpis").innerHTML = k.map(o=>`<div class="kpi"><span class="eyebrow"><span class="dot" style="background:${COLOR[o.ev]}"></span>${o.ev}</span><span class="v">${o.v}</span><span class="s">${o.s}</span></div>`).join("")
+    + `<div class="kpi ${all.tot && all.sv/all.tot<.1?"alert":""}"><span class="eyebrow">Via servidor (CAPI)</span><span class="v">${pct(all.sv,all.tot,0)}</span><span class="s">${fmt(all.sv)} de ${fmt(all.tot)} eventos</span></div>`;
+
+  const iss = diagnose(A), SEV={critical:"Crítico",serious:"Grave",warning:"Atenção",ok:"OK"};
+  document.getElementById("issue-count").textContent = iss.filter(i=>i.sev!=="ok").length + " itens · do mais grave ao menos grave";
+  document.getElementById("issues").innerHTML = iss.map(i=>`<article class="issue sev-${i.sev}"><span class="pill">${SEV[i.sev]}</span><h3>${i.title}</h3><p>${i.body}</p>${i.fix?`<p class="fix"><b>O que fazer:</b> ${i.fix}</p>`:""}</article>`).join("");
+
+  const fe = ["PageView","ViewContent","Lead","InitiateCheckout"].filter(e=>g(e)||e!=="InitiateCheckout");
+  const fmax = Math.max(...fe.map(g),1);
+  document.getElementById("funnel").innerHTML = fe.map((e,i)=>{
+    const prev = i? g(fe[i-1]) : null, step = prev ? g(e)/prev : null, bad = prev!=null && g(e)>prev;
+    return `<div class="frow"><span class="name">${e}</span><div class="bar"><span style="width:${Math.max(.5,g(e)/fmax*100)}%;background:${COLOR[e]}"></span></div><span class="val">${fmt(g(e))}</span></div>`
+      + (prev!=null ? `<div class="frow"><span></span><span class="fstep ${bad?"bad":""}">${bad?"▲ maior que a etapa anterior: evento faltando no meio":"↳ "+pct(g(e),prev)+" da etapa anterior"}</span></div>` : "");
+  }).join("");
+
+  document.getElementById("src").innerHTML = `<thead><tr><th>Evento</th><th>Navegador</th><th>Servidor</th><th>Outros</th><th>% servidor</th></tr></thead><tbody>`
+    + A.evs.map(e=>{const s=A.src[e]; return `<tr><td>${e}</td><td>${fmt(s.br)}</td><td class="${s.sv?"":"zero"}">${fmt(s.sv)}</td><td>${fmt(s.ot)}</td><td class="${s.sv?"":"zero"}">${pct(s.sv,s.tot,0)}</td></tr>`}).join("") + `</tbody>`;
+
+  const L = A.days.map(dLabel), tl = (l,i)=>`${wd(A.days[i])} ${l}`;
+  barChart("c-pv", L, A.days.map(d=>A.byDay[d].PageView||0), "var(--pv)", {tipLabel:tl});
+  barChart("c-lead", L, A.days.map(d=>A.byDay[d].Lead||0), "var(--lead)", {tipLabel:tl});
+  const firstLead = A.days.find(d=>A.byDay[d].Lead);
+  lineChart("c-rate", L, A.days.map(d=> firstLead && d>=firstLead && A.byDay[d].PageView ? (A.byDay[d].Lead||0)/A.byDay[d].PageView*100 : null), "var(--lead)", {tipLabel:tl});
+  const HL = Array.from({length:24},(_,h)=>h+"h");
+  barChart("c-hpv", HL, HL.map((_,h)=>A.byHour[h].PageView||0), "var(--pv)", {height:170, xEvery:3, tipLabel:l=>"PageView · "+l});
+  barChart("c-hlead", HL, HL.map((_,h)=>A.byHour[h].Lead||0), "var(--lead)", {height:170, xEvery:3, tipLabel:l=>"Lead · "+l});
+
+  const cols = A.evs;
+  document.getElementById("daily").innerHTML = `<thead><tr><th>Dia</th>${cols.map(c=>`<th>${c}</th>`).join("")}<th>PV→Lead</th></tr></thead><tbody>`
+    + A.days.map(d=>`<tr><td>${wd(d)} ${dLabel(d)}</td>${cols.map(c=>`<td>${fmt(A.byDay[d][c]||0)}</td>`).join("")}<td>${A.byDay[d].Lead?pct(A.byDay[d].Lead,A.byDay[d].PageView||0):"—"}</td></tr>`).join("") + `</tbody>`;
+
+  document.getElementById("foot").textContent = `Fonte: exportações "Eventos recebidos" do Events Manager, agregadas por hora. Linhas repetidas (mesma hora e evento) são contadas uma vez. Horários no fuso da conta de anúncios.`;
+}
+
+document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{ range=b.dataset.r; try{localStorage.setItem("pixel-range",range)}catch(e){} render(); }));
+
+document.getElementById("file").addEventListener("change", async e=>{
+  const st = document.getElementById("status"), files=[...e.target.files]; if(!files.length) return;
+  const map = new Map(); let n=0, bad=0;
+  for(const f of files){
+    try{
+      const wb = XLSX.read(await f.arrayBuffer(), {cellDates:true});
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:0});
+      for(const r of data){
+        let t = r.unix_time_start; if(!r.event || !t || typeof r.event!=="string") continue;
+        if(typeof t==="number") t = new Date(t>1e11?t:t*1000);
+        if(t instanceof Date){ const z=new Date(t.getTime()-t.getTimezoneOffset()*6e4); t=z.toISOString(); }
+        t = String(t).replace(" ","T").slice(0,13); if(!/^\d{4}-\d\d-\d\dT\d\d$/.test(t)) continue;
+        const ot = ["facebook_sdk_received_count","mmp_received_count","ae_api_received_count","ads_sdk_received_count"].reduce((s,c)=>s+(+r[c]||0),0);
+        map.set(t+"|"+r.event, {t, ev:r.event, br:+r.browser_received_count||0, sv:+r.server_received_count||0, ot, tot:+r.total_count||0}); n++;
+      }
+    }catch(err){ bad++; }
+  }
+  if(!map.size){ st.textContent = "Nenhuma linha reconhecida. Use a exportação de eventos do Events Manager (colunas unix_time_start, event, total_count)."; return; }
+  rows = [...map.values()]; range="all";
+  st.textContent = `${files.length} arquivo(s) carregado(s): ${fmt(map.size)} linhas únicas${n>map.size?`, ${fmt(n-map.size)} repetidas ignoradas`:""}${bad?`, ${bad} arquivo(s) ilegível(is)`:""}.`;
+  render();
+});
+
+let rt; window.addEventListener("resize",()=>{ clearTimeout(rt); rt=setTimeout(render,150); });
+render();
+</script>
